@@ -10,7 +10,7 @@ let db;
 
 mongoConnection
     .then((conn) => {
-        console.log('connected');
+        console.log('connected to db');
         db = conn;
     })
     .catch((err) => {
@@ -38,15 +38,31 @@ app.options('*', (req, res) => {
 });
 
 app.post("/api/registration", (req, res) => {
-    console.log(req.body);
-    console.log(!!req.db); // true if db connection exists
+    console.log('PAYLOAD:', req.body);
+    let newUser = req.body;
     
-    let output = {
+    let feedback = {
         success: true,
-        requestData: req.body
+        message: 'user added successfully'
     };
 
-    return res.json(output);
+    req.db
+        .collection('users')
+        .insertOne(newUser)
+        .then(
+            (result) => {
+                console.log(`MONGO RESPONSE: ${result.toString()}`);
+                return res.json(feedback);
+            }
+        )
+        .catch(
+            (err) => {
+                console.log(err);
+                return res
+                    .status(500)
+                    .json(err);
+            }
+        );
 });
 
 app.post("/api/login", (req, res) => {
