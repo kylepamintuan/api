@@ -1,6 +1,5 @@
 const bodyParser = require('body-parser');
 const express = require('express');
-const mongo = require('mongodb');
 const mongoUtility = require('./utilities/mongo.utility');
 
 const app = express();
@@ -51,7 +50,7 @@ app.post("/api/registration", (req, res) => {
         .insertOne(newUser)
         .then(
             (result) => {
-                console.log(`MONGO RESPONSE: ${result.toString()}`);
+                console.log(`MONGO: ${result.toString()}`);
                 return res.json(feedback);
             }
         )
@@ -66,7 +65,30 @@ app.post("/api/registration", (req, res) => {
 });
 
 app.post("/api/login", (req, res) => {
-    res.send('login');
+    console.log('PAYLOAD:', req.body);
+    let possibleUser = req.body;
+
+    let feedback = {
+        success: true,
+        message: 'login successful'
+    };
+
+    let userVerified = req.db
+        .collection('users')
+        .findOne(possibleUser);
+
+    if(userVerified){
+        console.log('MONGO: user verified');
+        return res.json(feedback);
+    }
+    else{
+        feedback.success = false;
+        feedback.message = 'login unsuccessful'
+
+        return res
+        .status(401)
+        .json(feedback);
+    }
 });
 
 app.get("/api/user-profile", (req, res) => {
