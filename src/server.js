@@ -73,22 +73,29 @@ app.post("/api/login", (req, res) => {
         message: 'login successful'
     };
 
-    let userVerified = req.db
+    req.db
         .collection('users')
-        .findOne(possibleUser);
+        .findOne(possibleUser)
+        .then((userFound) => {
+            if(userFound){
+                console.log('MONGO: user verified');
+                return res.json(feedback);
+            }
+            else{
+                console.log('MONGO: user NOT verified');
+                feedback.success = false;
+                feedback.message = 'login unsuccessful'
 
-    if(userVerified){
-        console.log('MONGO: user verified');
-        return res.json(feedback);
-    }
-    else{
-        feedback.success = false;
-        feedback.message = 'login unsuccessful'
+                return res
+                .status(401)
+                .json(feedback);
+            }
+        })
+        .catch((e) => {
+            console.log(e);
 
-        return res
-        .status(401)
-        .json(feedback);
-    }
+            return res.status(500).json(e);
+        });
 });
 
 app.get("/api/user-profile", (req, res) => {
