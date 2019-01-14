@@ -87,7 +87,7 @@ app.post("/api/login", (req, res) => {
                 feedback.message = 'login unsuccessful'
 
                 return res
-                .status(401)
+                .status(400)
                 .json(feedback);
             }
         })
