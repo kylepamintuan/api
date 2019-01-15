@@ -8,6 +8,7 @@ const mongoConnection = mongoUtility.connect('development');
 
 let db;
 
+// Connect to DB
 mongoConnection
     .then((conn) => {
         console.log('connected to db');
@@ -17,6 +18,7 @@ mongoConnection
         console.log(err);
     });
 
+// Middlewares
 app.use(bodyParser.json());
 app.use((req, res, next) => {
     req.db = db;
@@ -29,6 +31,7 @@ app.use(function (req, res, next) {
     return next();
 });
 
+// Enable Cross-Origin Resource Sharing (CORS)
 app.options('*', (req, res) => {
     res.set({
         'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
@@ -37,6 +40,7 @@ app.options('*', (req, res) => {
     return res.send('okay');
 });
 
+// HTTP Requests
 app.post("/api/registration", (req, res) => {
     console.log('PAYLOAD:', req.body);
     let newUser = req.body;
@@ -46,35 +50,56 @@ app.post("/api/registration", (req, res) => {
         message: 'user added successfully'
     };
 
-    bcrypt
-        .hash(newUser.password, 10)
-        .then(
-            (hash) => {
-                newUser.password = hash;
-                req.db
-                .collection('users')
-                .insertOne(newUser)
+    req.db
+    .collection('users')
+    .findOne({ "username": newUser.username })
+    .then(
+        (usernameTaken) => {
+            if(usernameTaken) {
+                console.log('MONGO: username already exists');
+                feedback.success = false;
+                feedback.message = 'username is taken';
+        
+                return res
+                .status(400)
+                .json(feedback);
+            }
+            else {
+                bcrypt
+                .hash(newUser.password, 10)
                 .then(
-                    (result) => {
-                        console.log(`MONGO: ${result.toString()}`);
-                        return res.json(feedback);
-                    }
-                )
-                .catch(
-                    (err) => {
-                        console.log(err);
-                        return res
-                            .status(500)
-                            .json(err);
+                    (hash) => {
+                        newUser.password = hash;
+                        req.db
+                        .collection('users')
+                        .insertOne(newUser)
+                        .then(
+                            (result) => {
+                                console.log(`MONGO: ${result.toString()}`);
+                                return res.json(feedback);
+                            }
+                        )
+                        .catch(
+                            (err) => {
+                                console.log(err);
+                                return res
+                                .status(500)
+                                .json(err);
+                            }
+                        );
                     }
                 );
             }
-        )
-        .catch(
-            (err) => { 
-                console.log(err);
-            }
-        )
+        }
+    )
+    .catch(
+        (err) => {
+            console.log(err);
+            return res
+            .status(500)
+            .json(err);
+        }
+    );
 });
 
 app.post("/api/login", (req, res) => {
@@ -87,47 +112,51 @@ app.post("/api/login", (req, res) => {
     };
 
     req.db
-        .collection('users')
-        .findOne({ "username": username })
-        .then((userFound) => {
+    .collection('users')
+    .findOne({ "username": username })
+    .then(
+        (userFound) => {
             if(userFound) {
                 console.log('MONGO: user found');
-                
                 bcrypt
-                    .compare(password, userFound.password)
-                    .then(
-                        (result) => {
-                            console.log('MONGO: user verified');
-                            return res.json(feedback);
-                        }
-                    )
-                    .catch(
-                        (err) => {
-                            console.log('MONGO: user NOT verified');
-                            feedback.success = false;
-                            feedback.message = 'login unsuccessful';
-
-                            return res
-                            .status(400)
-                            .json(feedback);
-                        }
-                    )
+                .compare(password, userFound.password)
+                .then(
+                    (result) => {
+                        console.log('MONGO: user verified');
+                        return res.json(feedback);
+                    }
+                )
+                .catch(
+                    (err) => {
+                        console.log('MONGO: user NOT verified');
+                        feedback.success = false;
+                        feedback.message = 'login unsuccessful';
+        
+                        return res
+                        .status(400)
+                        .json(feedback);
+                    }
+                );
             }
             else {
                 console.log('MONGO: user NOT found');
                 feedback.success = false;
                 feedback.message = 'user does not exist';
-
+        
                 return res
                 .status(400)
                 .json(feedback);
             }
-        })
-        .catch((e) => {
-            console.log(e);
-
-            return res.status(500).json(e);
-        });
+        }
+    )
+    .catch(
+        (err) => {
+            console.log(err);
+            return res
+            .status(500)
+            .json(err);
+        }
+    );
 });
 
 app.get("/api/user-profile", (req, res) => {
