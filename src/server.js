@@ -121,22 +121,22 @@ app.post("/api/login", (req, res) => {
                 bcrypt
                 .compare(password, userFound.password)
                 .then(
-                    (result) => {
-                        console.log('MONGO: user verified');
-                        return res.json(feedback);
+                    (userVerified) => {
+                        if(userVerified) {
+                            console.log('MONGO: user verified');
+                            return res.json(feedback);
+                        }
+                        else {
+                            console.log('MONGO: user NOT verified');
+                            feedback.success = false;
+                            feedback.message = 'login unsuccessful';
+
+                            return res
+                            .status(400)
+                            .json(feedback);
+                        }
                     }
                 )
-                .catch(
-                    (err) => {
-                        console.log('MONGO: user NOT verified');
-                        feedback.success = false;
-                        feedback.message = 'login unsuccessful';
-        
-                        return res
-                        .status(400)
-                        .json(feedback);
-                    }
-                );
             }
             else {
                 console.log('MONGO: user NOT found');
