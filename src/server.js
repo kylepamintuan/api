@@ -1,5 +1,6 @@
 const bodyParser = require('body-parser');
 const express = require('express');
+const bcrypt = require('bcrypt');
 const mongoUtility = require('./utilities/mongo.utility');
 
 const app = express();
@@ -45,28 +46,40 @@ app.post("/api/registration", (req, res) => {
         message: 'user added successfully'
     };
 
-    req.db
-        .collection('users')
-        .insertOne(newUser)
+    bcrypt
+        .hash(newUser.password, 10)
         .then(
-            (result) => {
-                console.log(`MONGO: ${result.toString()}`);
-                return res.json(feedback);
+            (hash) => {
+                newUser.password = hash;
+                req.db
+                .collection('users')
+                .insertOne(newUser)
+                .then(
+                    (result) => {
+                        console.log(`MONGO: ${result.toString()}`);
+                        return res.json(feedback);
+                    }
+                )
+                .catch(
+                    (err) => {
+                        console.log(err);
+                        return res
+                            .status(500)
+                            .json(err);
+                    }
+                );
             }
         )
         .catch(
-            (err) => {
+            (err) => { 
                 console.log(err);
-                return res
-                    .status(500)
-                    .json(err);
             }
-        );
+        )
 });
 
 app.post("/api/login", (req, res) => {
     console.log('PAYLOAD:', req.body);
-    let possibleUser = req.body;
+    let {username, password} = req.body;
 
     let feedback = {
         success: true,
@@ -75,16 +88,35 @@ app.post("/api/login", (req, res) => {
 
     req.db
         .collection('users')
-        .findOne(possibleUser)
+        .findOne({ "username": username })
         .then((userFound) => {
-            if(userFound){
-                console.log('MONGO: user verified');
-                return res.json(feedback);
+            if(userFound) {
+                console.log('MONGO: user found');
+                
+                bcrypt
+                    .compare(password, userFound.password)
+                    .then(
+                        (result) => {
+                            console.log('MONGO: user verified');
+                            return res.json(feedback);
+                        }
+                    )
+                    .catch(
+                        (err) => {
+                            console.log('MONGO: user NOT verified');
+                            feedback.success = false;
+                            feedback.message = 'login unsuccessful';
+
+                            return res
+                            .status(400)
+                            .json(feedback);
+                        }
+                    )
             }
-            else{
-                console.log('MONGO: user NOT verified');
+            else {
+                console.log('MONGO: user NOT found');
                 feedback.success = false;
-                feedback.message = 'login unsuccessful'
+                feedback.message = 'user does not exist';
 
                 return res
                 .status(400)
