@@ -1,6 +1,7 @@
 const bodyParser = require('body-parser');
 const express = require('express');
 const bcrypt = require('bcrypt');
+const webToken = require('jsonwebtoken');
 const mongoUtility = require('./utilities/mongo.utility');
 
 const app = express();
@@ -124,6 +125,7 @@ app.post("/api/login", (req, res) => {
                     (userVerified) => {
                         if(userVerified) {
                             console.log('MONGO: user verified');
+                            feedback.token = webToken.sign({'username': username}, 'cytellix', {expiresIn: '1hr'});
                             return res.json(feedback);
                         }
                         else {
