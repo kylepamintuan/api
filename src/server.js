@@ -125,7 +125,7 @@ app.post("/api/login", (req, res) => {
                     (userVerified) => {
                         if(userVerified) {
                             console.log('MONGO: user verified');
-                            feedback.token = webToken.sign({'username': username}, 'cytellix', {expiresIn: '1hr'});
+                            feedback.token = webToken.sign({username}, 'cytellix', {expiresIn: '1hr'});
                             return res.json(feedback);
                         }
                         else {
@@ -159,6 +159,18 @@ app.post("/api/login", (req, res) => {
             .json(err);
         }
     );
+});
+
+app.get("/api/reauthorize", (req, res) => {
+    let feedback = {
+        authorized: true,
+        message: 'token verified'
+    };
+
+    // verify token
+    console.log('REAUTHORIZE:', req.body);
+
+    return res.json(feedback);
 });
 
 app.get("/api/user-profile", (req, res) => {
