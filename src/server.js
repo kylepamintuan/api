@@ -9,7 +9,6 @@ const mongoConnection = mongoUtility.connect('development');
 
 let db;
 
-// Connect to DB
 mongoConnection
     .then((conn) => {
         console.log('connected to db');
@@ -19,7 +18,6 @@ mongoConnection
         console.log(err);
     });
 
-// Middlewares
 app.use(bodyParser.json());
 app.use((req, res, next) => {
     req.db = db;
@@ -32,7 +30,6 @@ app.use(function (req, res, next) {
     return next();
 });
 
-// Enable Cross-Origin Resource Sharing (CORS)
 app.options('*', (req, res) => {
     res.set({
         'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
@@ -41,7 +38,6 @@ app.options('*', (req, res) => {
     return res.send('okay');
 });
 
-// HTTP Requests
 app.post("/api/registration", (req, res) => {
     console.log('PAYLOAD:', req.body);
     let newUser = req.body;
@@ -162,15 +158,27 @@ app.post("/api/login", (req, res) => {
 });
 
 app.get("/api/reauthorize", (req, res) => {
+    let {token} = req.body;
+    console.log('token:', token);
+
     let feedback = {
         authorized: true,
         message: 'token verified'
     };
 
-    // verify token
-    console.log('REAUTHORIZE:', req.body);
+    webToken.verify(token, 'cytellix', (err, decoded) => {
+        if(err){
+            console.log(err);
+            feedback.authorized = false;
+            feedback.message = 'token could not be verified';
 
-    return res.json(feedback);
+            return res.json(feedback);
+        }
+        else {
+            feedback.username = decoded.username;
+            return res.json(feedback);
+        }
+    });
 });
 
 app.get("/api/user-profile", (req, res) => {
