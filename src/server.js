@@ -1,8 +1,8 @@
 const bodyParser = require('body-parser');
 const express = require('express');
 const bcrypt = require('bcrypt');
-const webToken = require('jsonwebtoken');
 const mongoUtility = require('./utilities/mongo.utility');
+const tokenUtility = require('./utilities/token.utility');
 
 const app = express();
 const mongoConnection = mongoUtility.connect('development');
@@ -121,7 +121,7 @@ app.post("/api/login", (req, res) => {
                     (userVerified) => {
                         if(userVerified) {
                             console.log('MONGO: user verified');
-                            feedback.token = webToken.sign({username}, 'cytellix', {expiresIn: '1hr'});
+                            feedback.token = tokenUtility.create({username}, 'cytellix', {expiresIn: '1hr'});
                             return res.json(feedback);
                         }
                         else {
@@ -165,20 +165,24 @@ app.post("/api/reauthorize", (req, res) => {
         message: 'token verified'
     };
 
-    webToken.verify(token, 'cytellix', (err, decoded) => {
-        if(err){
-            console.log(err.message);
+    tokenUtility
+    .decode(token, 'cytellix')
+    .then(
+        (decoded) => {
+            console.log('TOKEN: verified');
+            feedback.username = decoded.username;
+            return res.json(feedback);
+        }
+    )
+    .catch(
+        (error) => {
+            console.log(error.message);
             feedback.authorized = false;
             feedback.message = 'token could not be verified';
 
             return res.json(feedback);
         }
-        else {
-            console.log('TOKEN: verified');
-            feedback.username = decoded.username;
-            return res.json(feedback);
-        }
-    });
+    );
 });
 
 app.get("/api/user-profile", (req, res) => {

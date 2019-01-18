@@ -16,5 +16,5 @@ const connect = (dbName = 'development') => {
 }
 
 module.exports = { 
-    connect: connect
+    connect
 };
