@@ -157,9 +157,8 @@ app.post("/api/login", (req, res) => {
     );
 });
 
-app.get("/api/reauthorize", (req, res) => {
+app.post("/api/reauthorize", (req, res) => {
     let {token} = req.body;
-    console.log('token:', token);
 
     let feedback = {
         authorized: true,
@@ -168,13 +167,14 @@ app.get("/api/reauthorize", (req, res) => {
 
     webToken.verify(token, 'cytellix', (err, decoded) => {
         if(err){
-            console.log(err);
+            console.log(err.message);
             feedback.authorized = false;
             feedback.message = 'token could not be verified';
 
             return res.json(feedback);
         }
         else {
+            console.log('TOKEN: verified');
             feedback.username = decoded.username;
             return res.json(feedback);
         }
