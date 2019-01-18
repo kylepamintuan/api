@@ -73,7 +73,9 @@ app.post("/api/registration", (req, res) => {
                         .then(
                             (result) => {
                                 console.log(`MONGO: ${result.toString()}`);
-                                return res.json(feedback);
+                                return res
+                                .status(201)
+                                .json(feedback);
                             }
                         )
                         .catch(
@@ -171,7 +173,9 @@ app.post("/api/reauthorize", (req, res) => {
         (decoded) => {
             console.log('TOKEN: verified');
             feedback.username = decoded.username;
-            return res.json(feedback);
+            return res
+            .status(200)
+            .json(feedback);
         }
     )
     .catch(
@@ -180,7 +184,9 @@ app.post("/api/reauthorize", (req, res) => {
             feedback.authorized = false;
             feedback.message = 'token could not be verified';
 
-            return res.json(feedback);
+            return res
+            .status(400)
+            .json(feedback);
         }
     );
 });
