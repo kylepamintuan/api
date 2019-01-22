@@ -33,7 +33,7 @@ app.use(function (req, res, next) {
 app.options('*', (req, res) => {
     res.set({
         'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Access-Control-Request-Headers, Content-Type'
+        'Access-Control-Allow-Headers': 'Access-Control-Request-Headers, Content-Type, Authorization'
     })
     return res.send('okay');
 });
@@ -101,94 +101,130 @@ app.post("/api/registration", (req, res) => {
     );
 });
 
-app.post("/api/login", (req, res) => {
-    console.log('PAYLOAD:', req.body);
-    let {username, password} = req.body;
+app.get("/api/login", (req, res) => {
+    // console.log('Authorization:', req.headers.authorization);
+    let authHeader = req.headers.authorization;
 
     let feedback = {
         success: true,
         message: 'login successful'
     };
 
-    req.db
-    .collection('users')
-    .findOne({ "username": username })
-    .then(
-        (userFound) => {
-            if(userFound) {
-                console.log('MONGO: user found');
-                bcrypt
-                .compare(password, userFound.password)
-                .then(
-                    (userVerified) => {
-                        if(userVerified) {
-                            console.log('MONGO: user verified');
-                            feedback.token = tokenUtility.create({username}, 'cytellix', {expiresIn: '1hr'});
-                            return res.json(feedback);
-                        }
-                        else {
-                            console.log('MONGO: user NOT verified');
-                            feedback.success = false;
-                            feedback.message = 'login unsuccessful';
+    let basicRegex = /Basic/gm;
 
-                            return res
-                            .status(400)
-                            .json(feedback);
+    if (authHeader.search(basicRegex) > -1) {
+        let encodedMsg = authHeader.slice(6, authHeader.length);
+        let userPass = base64DecodeUnicode(encodedMsg);
+        let [ username, password ] = userPass.split(':');
+
+        req.db
+        .collection('users')
+        .findOne({ "username": username })
+        .then(
+            (userFound) => {
+                if(userFound) {
+                    console.log('MONGO: user found');
+
+                    bcrypt
+                    .compare(password, userFound.password)
+                    .then(
+                        (userVerified) => {
+                            if(userVerified) {
+                                console.log('MONGO: user verified');
+                                feedback.token = tokenUtility.create({username}, 'cytellix', {expiresIn: '1hr'});
+                                
+                                return res
+                                .status(200)
+                                .json(feedback);
+                            }
+                            else {
+                                console.log('MONGO: user NOT verified');
+                                feedback.success = false;
+                                feedback.message = 'login unsuccessful';
+
+                                return res
+                                .status(400)
+                                .json(feedback);
+                            }
                         }
-                    }
-                )
+                    )
+                }
+                else {
+                    console.log('MONGO: user NOT found');
+                    feedback.success = false;
+                    feedback.message = 'user does not exist';
+            
+                    return res
+                    .status(400)
+                    .json(feedback);
+                }
             }
-            else {
-                console.log('MONGO: user NOT found');
-                feedback.success = false;
-                feedback.message = 'user does not exist';
-        
+        )
+        .catch(
+            (err) => {
+                console.log(err);
+
                 return res
-                .status(400)
-                .json(feedback);
+                .status(500)
+                .json(err);
             }
-        }
-    )
-    .catch(
-        (err) => {
-            console.log(err);
-            return res
-            .status(500)
-            .json(err);
-        }
-    );
+        );
+    }
+    else {
+        feedback.success = false;
+        feedback.message = 'Invalid authorization header';
+
+        return res
+        .status(400)
+        .json(feedback);
+    }
 });
 
-app.post("/api/reauthorize", (req, res) => {
-    let {token} = req.body;
+app.get("/api/reauthorize", (req, res) => {
+    // console.log('Authorization:', req.headers.authorization);
+    let authHeader = req.headers.authorization;
 
     let feedback = {
         authorized: true,
         message: 'token verified'
     };
 
-    tokenUtility
-    .decode(token, 'cytellix')
-    .then(
-        (decoded) => {
-            console.log('TOKEN: verified');
-            feedback.username = decoded.username;
-            return res
-            .status(200)
-            .json(feedback);
-        }
-    )
-    .catch(
-        (error) => {
-            console.log(error.message);
-            feedback.authorized = false;
-            feedback.message = 'token could not be verified';
+    let bearerRegex = /Bearer/gm;
 
-            return res
-            .status(400)
-            .json(feedback);
-        }
-    );
+    if (authHeader.search(bearerRegex) > -1) {
+        let token = authHeader.slice(7, authHeader.length);
+
+        tokenUtility
+        .decode(token, 'cytellix')
+        .then(
+            (decoded) => {
+                console.log('TOKEN: verified');
+                feedback.username = decoded.username;
+                return res
+                .status(200)
+                .json(feedback);
+            }
+        )
+        .catch(
+            (error) => {
+                console.log(error.message);
+                feedback.authorized = false;
+                feedback.message = 'token could not be verified';
+    
+                return res
+                .status(400)
+                .json(feedback);
+            }
+        );
+    }
+    else {
+        feedback.success = false;
+        feedback.message = 'Invalid authorization header';
+
+        return res
+        .status(400)
+        .json(feedback);
+    }
 });
 
 app.get("/api/user-profile", (req, res) => {
@@ -202,3 +238,7 @@ app.get('/', function(req, res) {
 app.listen(3000, () => {
     console.log("Server running on port 3000");
 })
+
+function base64DecodeUnicode(str) {
+    return decodeURIComponent(Buffer.from(str, 'base64').toString());
+}
