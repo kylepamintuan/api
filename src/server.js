@@ -35,7 +35,7 @@ app.options('*', (req, res) => {
         'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Access-Control-Request-Headers, Content-Type, Authorization'
     })
-    return res.send('okay');
+    return res.send('CORS preflight request received');
 });
 
 app.post("/api/registration", (req, res) => {
@@ -112,7 +112,7 @@ app.get("/api/login", (req, res) => {
 
     let basicRegex = /Basic/gm;
 
-    if (authHeader.search(basicRegex) > -1) {
+    if (authHeader && authHeader.search(basicRegex) > -1) {
         let encodedMsg = authHeader.slice(6, authHeader.length);
         let userPass = base64DecodeUnicode(encodedMsg);
         let [ username, password ] = userPass.split(':');
@@ -174,8 +174,10 @@ app.get("/api/login", (req, res) => {
         feedback.success = false;
         feedback.message = 'Invalid authorization header';
 
+        res.set('WWW-Authenticate', 'Basic realm="user profile"');
+
         return res
-        .status(400)
+        .status(401)
         .json(feedback);
     }
 });
@@ -191,7 +193,7 @@ app.get("/api/reauthorize", (req, res) => {
 
     let bearerRegex = /Bearer/gm;
 
-    if (authHeader.search(bearerRegex) > -1) {
+    if (authHeader && authHeader.search(bearerRegex) > -1) {
         let token = authHeader.slice(7, authHeader.length);
 
         tokenUtility
@@ -200,6 +202,7 @@ app.get("/api/reauthorize", (req, res) => {
             (decoded) => {
                 console.log('TOKEN: verified');
                 feedback.username = decoded.username;
+
                 return res
                 .status(200)
                 .json(feedback);
@@ -207,12 +210,14 @@ app.get("/api/reauthorize", (req, res) => {
         )
         .catch(
             (error) => {
-                console.log(error.message);
+                console.log(`JWT: ${error.name} -- ${error.message}`);
                 feedback.authorized = false;
                 feedback.message = 'token could not be verified';
+
+                res.set('WWW-Authenticate', `Bearer realm="user_profile", error="invalid_token", error_description="${error.message}"`);
     
                 return res
-                .status(400)
+                .status(401)
                 .json(feedback);
             }
         );
@@ -221,8 +226,10 @@ app.get("/api/reauthorize", (req, res) => {
         feedback.success = false;
         feedback.message = 'Invalid authorization header';
 
+        res.set('WWW-Authenticate', 'Bearer realm="user_profile"');
+
         return res
-        .status(400)
+        .status(401)
         .json(feedback);
     }
 });
