@@ -101,84 +101,64 @@ app.post("/api/registration", (req, res) => {
     );
 });
 
-app.get("/api/login", (req, res) => {
-    // console.log('Authorization:', req.headers.authorization);
-    let authHeader = req.headers.authorization;
+app.get("/api/login", async (req, res) => {
+    try {
+        // console.log('Authorization:', req.headers.authorization);
+        let { authorization: authHeader } = req.headers;
 
-    let feedback = {
-        success: true,
-        message: 'login successful'
-    };
+        let feedback = {
+            success: true,
+            message: 'login successful'
+        };
 
-    let basicRegex = /Basic/gm;
+        if (authHeader && /^Basic\s{1,1}.+$/.test(authHeader)) {
+            let encodedCredential = authHeader
+                .split(' ')
+                .pop();
+            let { username, password } = basicAuthDecode(encodedMsg);
 
-    if (authHeader && authHeader.search(basicRegex) > -1) {
-        let encodedMsg = authHeader.slice(6, authHeader.length);
-        let userPass = base64DecodeUnicode(encodedMsg);
-        let [ username, password ] = userPass.split(':');
-
-        req.db
-        .collection('users')
-        .findOne({ "username": username })
-        .then(
-            (userFound) => {
-                if(userFound) {
-                    console.log('MONGO: user found');
-
-                    bcrypt
-                    .compare(password, userFound.password)
-                    .then(
-                        (userVerified) => {
-                            if(userVerified) {
-                                console.log('MONGO: user verified');
-                                feedback.token = tokenUtility.create({username}, 'cytellix', {expiresIn: '1hr'});
-                                
-                                return res
-                                .status(200)
-                                .json(feedback);
-                            }
-                            else {
-                                console.log('MONGO: user NOT verified');
-                                feedback.success = false;
-                                feedback.message = 'login unsuccessful';
-
-                                return res
-                                .status(400)
-                                .json(feedback);
-                            }
-                        }
-                    )
+            let userFound = await req.db.collection('users').findOne({ 'username': username });
+            if (userFound) {
+                let userVerified = await bcrypt.compare(password, userFound.password);
+                if(userVerified) {
+                    console.log('MONGO: user verified');
+                    feedback.token = tokenUtility.create({username}, 'cytellix', {expiresIn: '1hr'});
+                    return res
+                        .status(200)
+                        .json(feedback);
                 }
                 else {
-                    console.log('MONGO: user NOT found');
+                    console.log('MONGO: user NOT verified');
                     feedback.success = false;
-                    feedback.message = 'user does not exist';
-            
+                    feedback.message = 'login unsuccessful';
                     return res
-                    .status(400)
-                    .json(feedback);
+                        .status(400)
+                        .json(feedback);
                 }
             }
-        )
-        .catch(
-            (err) => {
-                console.log(err);
-
+            else {
+                console.log('MONGO: user NOT found');
+                feedback.success = false;
+                feedback.message = 'user does not exist';
                 return res
-                .status(500)
-                .json(err);
+                    .status(400)
+                    .json(feedback);
             }
-        );
+        }
+        else {
+            feedback.success = false;
+            feedback.message = 'Invalid authorization header';
+            res.set('WWW-Authenticate', 'Basic realm="user profile"');
+            return res
+                .status(401)
+                .json(feedback);
+        }
     }
-    else {
-        feedback.success = false;
-        feedback.message = 'Invalid authorization header';
-
-        res.set('WWW-Authenticate', 'Basic realm="user profile"');
-
+    catch(e) {
+        console.log(err);
         return res
-        .status(401)
-        .json(feedback);
+            .status(500)
+            .json(err);
     }
 });
 
@@ -246,6 +226,12 @@ app.listen(3000, () => {
     console.log("Server running on port 3000");
 })
 
-function base64DecodeUnicode(str) {
-    return decodeURIComponent(Buffer.from(str, 'base64').toString());
+function basicAuthDecode(str) {
+    const [ username, password ] = decodeURIComponent(
+        Buffer
+            .from(str, 'base64')
+            .toString()
+    )
+        .split(':');
+    return { username, password };
 }
